@@ -1,6 +1,7 @@
 from flask import Flask, render_template, request, jsonify
 from app.ai_agent import generate_job_summary
 from app.sheets import store_to_gsheet
+import json
 
 app = Flask(__name__)
 
@@ -20,17 +21,21 @@ def generate():
         if not job_info:
             return jsonify({"error": "No job_info provided"}), 400
 
-    # Wrap single job_info in a message history (if it's just a string)
+    # Ensure job_info is in correct OpenAI message format
     if isinstance(job_info, str):
-        message_history = [job_info]
+        message_history = [{"role": "user", "content": job_info}]
+    elif isinstance(job_info, list):
+        message_history = [
+            {"role": "user", "content": m} if isinstance(m, str) else m
+            for m in job_info
+        ]
     else:
-        message_history = job_info
+        return jsonify({"error": "Invalid job_info format"}), 400
 
     ai_reply = generate_job_summary(message_history)
 
     # Try to extract structured JSON from the agent's reply and store to GSheet if present
     stored = False
-    import json
     try:
         summary_json = json.loads(ai_reply)
         store_to_gsheet(summary_json)
