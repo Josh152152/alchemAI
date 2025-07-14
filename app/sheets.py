@@ -4,7 +4,7 @@ import os
 import json
 
 scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
-creds = ServiceAccountCredentials.from_json_keyfile_name('creds.json', scope)
+creds = ServiceAccountCredentials.from_json_keyfile_name('/app/creds.json', scope)
 client = gspread.authorize(creds)
 sheet = client.open_by_key('10WTvkXQqCUes7BQ_pPygzpllLhV9SNiy2dMDL73IOIY').sheet1
 
