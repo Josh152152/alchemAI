@@ -7,22 +7,42 @@
     <h2>Paste your job ad or describe the job here:</h2>
     <form id="agent-form">
         <textarea name="job_info" rows="12" cols="70"></textarea><br>
-        <button type="submit">Generate Job Summary</button>
+        <button type="submit">Send</button>
     </form>
     <h3>AI Agent Output:</h3>
     <pre id="output"></pre>
+    <h3>Structured JSON Output (if ready):</h3>
     <pre id="json-output" style="background:#f8f8f8;padding:8px;border-radius:8px"></pre>
     <script>
+        // Conversation history
+        let history = [];
+
         document.getElementById("agent-form").onsubmit = async (e) => {
             e.preventDefault();
-            const formData = new FormData(e.target);
-            const res = await fetch("/generate", {method: "POST", body: formData});
+            const textarea = e.target.elements["job_info"];
+            const userInput = textarea.value.trim();
+            if (!userInput) return;
+
+            // Add user message to history
+            history.push({role: "user", content: userInput});
+            textarea.value = ""; // clear input
+
+            // POST full history as JSON
+            const res = await fetch("/generate", {
+                method: "POST",
+                headers: {"Content-Type": "application/json"},
+                body: JSON.stringify({history})
+            });
+
             const data = await res.json();
 
-            // Show the AI's reply as plain text
+            // Add agent reply to history for next round
+            history.push({role: "assistant", content: data.reply});
+
+            // Show reply
             document.getElementById("output").textContent = data.reply || "No reply from agent.";
 
-            // If a JSON summary exists, pretty print it below
+            // Pretty print summary JSON if present
             if (data.summary) {
                 document.getElementById("json-output").textContent = JSON.stringify(data.summary, null, 2);
             } else {
