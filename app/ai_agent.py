@@ -6,16 +6,13 @@ def get_agent_prompt():
         return f.read()
 
 def generate_job_summary(user_input):
-    prompt = get_agent_prompt()
-    # For OpenAI, provide both system prompt and user input
-    response = openai.ChatCompletion.create(
+    client = openai.OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+    response = client.chat.completions.create(
         model="gpt-4o",
         messages=[
-            {"role": "system", "content": prompt},
+            {"role": "system", "content": get_agent_prompt()},
             {"role": "user", "content": user_input}
         ],
         temperature=0.2
     )
-    # Get AI's structured JSON output
-    return response['choices'][0]['message']['content']
-
+    return response.choices[0].message.content
