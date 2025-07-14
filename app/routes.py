@@ -26,6 +26,9 @@ def generate():
     elif not isinstance(job_info, str):
         return jsonify({"error": "Invalid job_info format"}), 400
 
+    # --- DEBUG PRINTS ---
+    print("job_info received:", job_info)
+
     # Send as a single message to OpenAI
     ai_reply = generate_job_summary(job_info)
 
@@ -35,8 +38,13 @@ def generate():
         summary_json = json.loads(ai_reply)
         store_to_gsheet(summary_json)
         stored = True
-    except Exception:
+    except Exception as e:
+        print("JSON decode or GSheet store failed:", str(e))
         summary_json = None  # Not a structured summary yet
+
+    print("AI reply:", ai_reply)
+    print("Summary JSON:", summary_json)
+    print("Saved to GSheet:", stored)
 
     return jsonify({
         "reply": ai_reply,
