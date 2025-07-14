@@ -11,26 +11,27 @@ def home():
 
 @app.route('/generate', methods=['POST'])
 def generate():
-    # Accept job_info from HTML form or JSON body
-    job_info = request.form.get("job_info")
-    if not job_info:
-        data = request.get_json(silent=True)
-        if data:
-            job_info = data.get("job_info") or data.get("history")
-        if not job_info:
-            return jsonify({"error": "No job_info provided"}), 400
+    # Default: no message history yet
+    message_history = None
 
-    # Guarantee job_info is always a string for OpenAI API
-    if isinstance(job_info, list):
-        job_info = "\n".join(str(m) for m in job_info if isinstance(m, str))
-    elif not isinstance(job_info, str):
-        return jsonify({"error": "Invalid job_info format"}), 400
+    # Prefer JSON body (for multi-turn chat)
+    data = request.get_json(silent=True)
+    if data and "history" in data:
+        message_history = data["history"]
+    else:
+        # Fall back to form data (single-shot form)
+        job_info = request.form.get("job_info")
+        if job_info:
+            message_history = [{"role": "user", "content": job_info}]
+    
+    if not message_history:
+        return jsonify({"error": "No job_info or history provided"}), 400
 
     # --- DEBUG PRINTS ---
-    print("job_info received:", job_info)
+    print("message_history received:", message_history)
 
-    # Send as a single message to OpenAI
-    ai_reply = generate_job_summary(job_info)
+    # Send full conversation to OpenAI
+    ai_reply = generate_job_summary(message_history)
 
     # Try to extract structured JSON from the agent's reply and store to GSheet if present
     stored = False
