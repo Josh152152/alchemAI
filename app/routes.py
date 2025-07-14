@@ -11,28 +11,23 @@ def home():
 
 @app.route('/generate', methods=['POST'])
 def generate():
-    # Accept job_info from HTML form
+    # Accept job_info from HTML form or JSON body
     job_info = request.form.get("job_info")
     if not job_info:
-        # If no job_info found, try JSON (for backwards compatibility)
         data = request.get_json(silent=True)
         if data:
             job_info = data.get("job_info") or data.get("history")
         if not job_info:
             return jsonify({"error": "No job_info provided"}), 400
 
-    # Ensure job_info is in correct OpenAI message format
-    if isinstance(job_info, str):
-        message_history = [{"role": "user", "content": job_info}]
-    elif isinstance(job_info, list):
-        message_history = [
-            {"role": "user", "content": m} if isinstance(m, str) else m
-            for m in job_info
-        ]
-    else:
+    # Guarantee job_info is always a string for OpenAI API
+    if isinstance(job_info, list):
+        job_info = "\n".join(str(m) for m in job_info if isinstance(m, str))
+    elif not isinstance(job_info, str):
         return jsonify({"error": "Invalid job_info format"}), 400
 
-    ai_reply = generate_job_summary(message_history)
+    # Send as a single message to OpenAI
+    ai_reply = generate_job_summary(job_info)
 
     # Try to extract structured JSON from the agent's reply and store to GSheet if present
     stored = False
