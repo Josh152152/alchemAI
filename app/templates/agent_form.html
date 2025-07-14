@@ -1,53 +1,64 @@
 <!doctype html>
 <html>
 <head>
-    <title>Job Summary Agent</title>
+    <title>Job Summary Agent Chat</title>
+    <style>
+        body { font-family: Arial, sans-serif; }
+        #chat { background: #f9f9f9; border-radius: 8px; padding: 16px; height: 320px; overflow-y: auto; margin-bottom: 12px; }
+        .user { color: #333; font-weight: bold; margin: 8px 0 2px 0; }
+        .ai { color: #1976d2; margin: 4px 0 10px 0; }
+        #input-area { display: flex; gap: 6px; }
+        #input-box { flex: 1; }
+        button { padding: 6px 16px; border-radius: 6px; border: none; background: #1976d2; color: white; }
+        button:disabled { background: #bbb; }
+    </style>
 </head>
 <body>
-    <h2>Paste your job ad or describe the job here:</h2>
-    <form id="agent-form">
-        <textarea name="job_info" rows="12" cols="70"></textarea><br>
-        <button type="submit">Send</button>
+    <h2>Job Ad Chat Agent</h2>
+    <div id="chat"></div>
+    <form id="input-area">
+        <input id="input-box" type="text" autocomplete="off" placeholder="Type your message..." required>
+        <button id="send-btn" type="submit">Send</button>
     </form>
-    <h3>AI Agent Output:</h3>
-    <pre id="output"></pre>
-    <h3>Structured JSON Output (if ready):</h3>
-    <pre id="json-output" style="background:#f8f8f8;padding:8px;border-radius:8px"></pre>
     <script>
-        // Conversation history
         let history = [];
 
-        document.getElementById("agent-form").onsubmit = async (e) => {
+        // Utility: Append a message to chat window
+        function appendMessage(role, content) {
+            const chat = document.getElementById('chat');
+            const div = document.createElement('div');
+            div.className = role;
+            div.innerHTML = `<div><strong>${role === "user" ? "You" : "Agent"}:</strong></div><div>${content.replace(/\n/g,'<br>')}</div>`;
+            chat.appendChild(div);
+            chat.scrollTop = chat.scrollHeight;
+        }
+
+        // On form submit, send user message & update chat
+        document.getElementById("input-area").onsubmit = async (e) => {
             e.preventDefault();
-            const textarea = e.target.elements["job_info"];
-            const userInput = textarea.value.trim();
-            if (!userInput) return;
+            const input = document.getElementById("input-box");
+            const userMsg = input.value.trim();
+            if (!userMsg) return;
 
-            // Add user message to history
-            history.push({role: "user", content: userInput});
-            textarea.value = ""; // clear input
+            appendMessage("user", userMsg);
+            history.push({ role: "user", content: userMsg });
+            input.value = "";
+            document.getElementById("send-btn").disabled = true;
 
-            // POST full history as JSON
+            // POST the full message history
             const res = await fetch("/generate", {
                 method: "POST",
-                headers: {"Content-Type": "application/json"},
-                body: JSON.stringify({history})
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ job_info: history })
             });
-
             const data = await res.json();
 
-            // Add agent reply to history for next round
-            history.push({role: "assistant", content: data.reply});
+            // AI reply
+            const aiMsg = data.reply || "No reply from agent.";
+            appendMessage("ai", aiMsg);
+            history.push({ role: "assistant", content: aiMsg });
 
-            // Show reply
-            document.getElementById("output").textContent = data.reply || "No reply from agent.";
-
-            // Pretty print summary JSON if present
-            if (data.summary) {
-                document.getElementById("json-output").textContent = JSON.stringify(data.summary, null, 2);
-            } else {
-                document.getElementById("json-output").textContent = ""; // clear old
-            }
+            document.getElementById("send-btn").disabled = false;
         };
     </script>
 </body>
