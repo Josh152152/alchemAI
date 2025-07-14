@@ -1,10 +1,10 @@
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
-import os
 import json
 
+# Use the secret path provided by Render
 scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
-creds = ServiceAccountCredentials.from_json_keyfile_name('/app/creds.json', scope)
+creds = ServiceAccountCredentials.from_json_keyfile_name('/etc/secrets/creds.json', scope)
 client = gspread.authorize(creds)
 sheet = client.open_by_key('10WTvkXQqCUes7BQ_pPygzpllLhV9SNiy2dMDL73IOIY').sheet1
 
