@@ -16,14 +16,13 @@
 <body>
     <h2>Job Ad Chat Agent</h2>
     <div id="chat"></div>
-    <form id="input-area">
+    <form id="input-area" autocomplete="off">
         <input id="input-box" type="text" autocomplete="off" placeholder="Type your message..." required>
         <button id="send-btn" type="submit">Send</button>
     </form>
     <script>
         let history = [];
 
-        // Utility: Append a message to chat window
         function appendMessage(role, content) {
             const chat = document.getElementById('chat');
             const div = document.createElement('div');
@@ -33,7 +32,6 @@
             chat.scrollTop = chat.scrollHeight;
         }
 
-        // On form submit, send user message & update chat
         document.getElementById("input-area").onsubmit = async (e) => {
             e.preventDefault();
             const input = document.getElementById("input-box");
@@ -46,19 +44,23 @@
             document.getElementById("send-btn").disabled = true;
 
             // POST the full message history
-            const res = await fetch("/generate", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ job_info: history })
-            });
-            const data = await res.json();
+            try {
+                const res = await fetch("/generate", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ job_info: history })
+                });
+                const data = await res.json();
 
-            // AI reply
-            const aiMsg = data.reply || "No reply from agent.";
-            appendMessage("ai", aiMsg);
-            history.push({ role: "assistant", content: aiMsg });
-
-            document.getElementById("send-btn").disabled = false;
+                // AI reply
+                const aiMsg = data.reply || "No reply from agent.";
+                appendMessage("ai", aiMsg);
+                history.push({ role: "assistant", content: aiMsg });
+            } catch (err) {
+                appendMessage("ai", "Error connecting to backend.");
+            } finally {
+                document.getElementById("send-btn").disabled = false;
+            }
         };
     </script>
 </body>
