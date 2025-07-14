@@ -1,7 +1,7 @@
-<!DOCTYPE html>
+<!doctype html>
 <html>
 <head>
-    <title>JobAd Agent Demo</title>
+    <title>Job Summary Agent</title>
 </head>
 <body>
     <h2>Paste your job ad or describe the job here:</h2>
@@ -11,13 +11,23 @@
     </form>
     <h3>AI Agent Output:</h3>
     <pre id="output"></pre>
+    <pre id="json-output" style="background:#f8f8f8;padding:8px;border-radius:8px"></pre>
     <script>
         document.getElementById("agent-form").onsubmit = async (e) => {
             e.preventDefault();
             const formData = new FormData(e.target);
             const res = await fetch("/generate", {method: "POST", body: formData});
             const data = await res.json();
-            document.getElementById("output").textContent = data.summary;
+
+            // Show the AI's reply as plain text
+            document.getElementById("output").textContent = data.reply || "No reply from agent.";
+
+            // If a JSON summary exists, pretty print it below
+            if (data.summary) {
+                document.getElementById("json-output").textContent = JSON.stringify(data.summary, null, 2);
+            } else {
+                document.getElementById("json-output").textContent = ""; // clear old
+            }
         };
     </script>
 </body>
