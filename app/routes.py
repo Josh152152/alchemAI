@@ -10,11 +10,24 @@ def home():
 
 @app.route('/generate', methods=['POST'])
 def generate():
-    # Expect the full message history in JSON (POSTed as JSON, not form)
-    data = request.get_json()
-    message_history = data.get("history", [])
+    # Accept job_info from HTML form
+    job_info = request.form.get("job_info")
+    if not job_info:
+        # If no job_info found, try JSON (for backwards compatibility)
+        data = request.get_json(silent=True)
+        if data:
+            job_info = data.get("job_info") or data.get("history")
+        if not job_info:
+            return jsonify({"error": "No job_info provided"}), 400
+
+    # Wrap single job_info in a message history (if it's just a string)
+    if isinstance(job_info, str):
+        message_history = [job_info]
+    else:
+        message_history = job_info
+
     ai_reply = generate_job_summary(message_history)
-    
+
     # Try to extract structured JSON from the agent's reply and store to GSheet if present
     stored = False
     import json
