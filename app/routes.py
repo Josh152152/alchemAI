@@ -1,6 +1,6 @@
 from flask import Flask, render_template, request, jsonify
 from app.ai_agent import generate_job_summary
-# from app.sheets import store_to_gsheet  # Implement later
+from app.sheets import store_to_gsheet
 
 app = Flask(__name__)
 
@@ -10,13 +10,27 @@ def home():
 
 @app.route('/generate', methods=['POST'])
 def generate():
-    user_input = request.form.get("job_info", "")
-    summary_json = generate_job_summary(user_input)
-    # Optionally store in Google Sheet
-    # store_to_gsheet(summary_json)
-    return jsonify({"summary": summary_json})
+    # Expect the full message history in JSON (POSTed as JSON, not form)
+    data = request.get_json()
+    message_history = data.get("history", [])
+    ai_reply = generate_job_summary(message_history)
+    
+    # Try to extract structured JSON from the agent's reply and store to GSheet if present
+    stored = False
+    import json
+    try:
+        summary_json = json.loads(ai_reply)
+        store_to_gsheet(summary_json)
+        stored = True
+    except Exception:
+        summary_json = None  # Not a structured summary yet
 
-# For Render
+    return jsonify({
+        "reply": ai_reply,
+        "saved": stored,
+        "summary": summary_json
+    })
+
+# For Render local debug only
 if __name__ == "__main__":
     app.run(host='0.0.0.0', port=10000)
-
