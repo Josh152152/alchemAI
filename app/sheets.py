@@ -6,7 +6,7 @@ import json
 scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
 creds = ServiceAccountCredentials.from_json_keyfile_name('creds.json', scope)
 client = gspread.authorize(creds)
-sheet = client.open('JobAdAgentData').sheet1  # Change to your sheet name
+sheet = client.open_by_key('10WTvkXQqCUes7BQ_pPygzpllLhV9SNiy2dMDL73IOIY').sheet1
 
 FIELDS = [
     "job_title", "responsibilities", "compensation_range", "benefits", "work_life_balance",
@@ -21,4 +21,3 @@ def store_to_gsheet(job_json):
         job_json = json.loads(job_json)
     values = [job_json.get(field, "") for field in FIELDS]
     sheet.append_row(values)
-
