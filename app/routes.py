@@ -1,9 +1,11 @@
 from flask import Flask, render_template, request, jsonify
+from flask_cors import CORS
 from app.ai_agent import generate_job_summary
 from app.sheets import store_to_gsheet
 import json
 
 app = Flask(__name__)
+CORS(app)  # Enable CORS for all routes
 
 @app.route('/', methods=['GET'])
 def home():
