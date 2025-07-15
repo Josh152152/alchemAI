@@ -3,6 +3,7 @@ from flask_cors import CORS
 from app.ai_agent import generate_job_summary
 from app.sheets import store_to_gsheet
 import json
+import requests
 
 app = Flask(__name__)
 CORS(app)  # Enable CORS for all routes
@@ -56,6 +57,29 @@ def generate():
         "saved": stored,
         "summary": summary_json
     })
+
+@app.route('/verify-turnstile', methods=['POST'])
+def verify_turnstile():
+    data = request.get_json()
+    token = data.get('token')
+    secret_key = "0x4AAAAAABlQdjkFDmHwSHVnMuQ4TvW1Nsk"  # Replace with your actual Cloudflare Turnstile secret key
+
+    if not token:
+        return jsonify({"success": False, "error": "Missing token"}), 400
+
+    verify_url = "https://challenges.cloudflare.com/turnstile/v0/siteverify"
+    payload = {
+        'secret': secret_key,
+        'response': token
+    }
+
+    response = requests.post(verify_url, data=payload)
+    result = response.json()
+
+    if result.get("success"):
+        return jsonify({"success": True})
+    else:
+        return jsonify({"success": False, "error": result.get("error-codes", "Unknown error")}), 400
 
 if __name__ == "__main__":
     app.run(host='0.0.0.0', port=10000)
