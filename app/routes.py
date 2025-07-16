@@ -5,8 +5,16 @@ from app.sheets import store_to_gsheet
 import json
 import requests
 
+# Firebase Admin imports
+import firebase_admin
+from firebase_admin import auth as firebase_auth, credentials
+
 app = Flask(__name__)
 CORS(app)  # Enable CORS for all routes
+
+# Initialize Firebase Admin SDK (replace with your service account key path or dict)
+cred = credentials.Certificate("path/to/your/firebase-service-account.json")
+firebase_admin.initialize_app(cred)
 
 @app.route('/', methods=['GET'])
 def home():
@@ -30,11 +38,10 @@ def generate():
         job_info = request.form.get("job_info")
         if job_info:
             message_history = [{"role": "user", "content": job_info}]
-    
+
     if not message_history:
         return jsonify({"error": "No job_info or history provided"}), 400
 
-    # --- DEBUG ---
     print("message_history received:", message_history)
 
     ai_reply = generate_job_summary(message_history)
@@ -62,7 +69,7 @@ def generate():
 def verify_turnstile():
     data = request.get_json()
     token = data.get('token')
-    secret_key = "0x4AAAAAABlQdjkFDmHwSHVnMuQ4TvW1Nsk"  # Replace with your actual Cloudflare Turnstile secret key
+    secret_key = "0x4AAAAAABlQdjkFDmHwSHVnMuQ4TvW1Nsk"  # Your Cloudflare Turnstile secret key
 
     if not token:
         return jsonify({"success": False, "error": "Missing token"}), 400
@@ -80,6 +87,20 @@ def verify_turnstile():
         return jsonify({"success": True})
     else:
         return jsonify({"success": False, "error": result.get("error-codes", "Unknown error")}), 400
+
+@app.route('/verify-token', methods=['POST'])
+def verify_token():
+    data = request.get_json()
+    id_token = data.get('idToken')
+    if not id_token:
+        return jsonify({"message": "Missing ID token"}), 400
+
+    try:
+        decoded_token = firebase_auth.verify_id_token(id_token)
+        uid = decoded_token['uid']
+        return jsonify({"message": "Token valid", "uid": uid})
+    except Exception as e:
+        return jsonify({"message": f"Invalid token: {str(e)}"}), 401
 
 if __name__ == "__main__":
     app.run(host='0.0.0.0', port=10000)
