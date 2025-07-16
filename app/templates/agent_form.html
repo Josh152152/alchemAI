@@ -1,67 +1,87 @@
-<!doctype html>
-<html>
+<!DOCTYPE html>
+<html lang="en">
 <head>
-    <title>Job Summary Agent Chat</title>
-    <style>
-        body { font-family: Arial, sans-serif; }
-        #chat { background: #f9f9f9; border-radius: 8px; padding: 16px; height: 320px; overflow-y: auto; margin-bottom: 12px; }
-        .user { color: #333; font-weight: bold; margin: 8px 0 2px 0; }
-        .ai { color: #1976d2; margin: 4px 0 10px 0; }
-        #input-area { display: flex; gap: 6px; }
-        #input-box { flex: 1; }
-        button { padding: 6px 16px; border-radius: 6px; border: none; background: #1976d2; color: white; }
-        button:disabled { background: #bbb; }
-    </style>
+  <meta charset="UTF-8" />
+  <title>Signup / Signin</title>
 </head>
 <body>
-    <h2>Job Ad Chat Agent</h2>
-    <div id="chat"></div>
-    <form id="input-area" autocomplete="off">
-        <input id="input-box" type="text" autocomplete="off" placeholder="Type your message..." required>
-        <button id="send-btn" type="submit">Send</button>
-    </form>
-    <script>
-        let history = [];
+  <h1>Signup / Signin</h1>
 
-        function appendMessage(role, content) {
-            const chat = document.getElementById('chat');
-            const div = document.createElement('div');
-            div.className = role;
-            div.innerHTML = `<div><strong>${role === "user" ? "You" : "Agent"}:</strong></div><div>${content.replace(/\n/g,'<br>')}</div>`;
-            chat.appendChild(div);
-            chat.scrollTop = chat.scrollHeight;
-        }
+  <input id="email-input" type="email" placeholder="Email" />
+  <input id="password-input" type="password" placeholder="Password" />
 
-        document.getElementById("input-area").onsubmit = async (e) => {
-            e.preventDefault();
-            const input = document.getElementById("input-box");
-            const userMsg = input.value.trim();
-            if (!userMsg) return;
+  <button id="signup-btn">Sign Up</button>
+  <button id="signin-btn">Sign In</button>
 
-            appendMessage("user", userMsg);
-            history.push({ role: "user", content: userMsg });
-            input.value = "";
-            document.getElementById("send-btn").disabled = true;
+  <p id="auth-message">Please sign in or sign up.</p>
 
-            // POST the full message history
-            try {
-                const res = await fetch("/generate", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ job_info: history })
-                });
-                const data = await res.json();
+  <!-- Firebase scripts and your JS go here -->
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
 
-                // AI reply
-                const aiMsg = data.reply || "No reply from agent.";
-                appendMessage("ai", aiMsg);
-                history.push({ role: "assistant", content: aiMsg });
-            } catch (err) {
-                appendMessage("ai", "Error connecting to backend.");
-            } finally {
-                document.getElementById("send-btn").disabled = false;
-            }
-        };
-    </script>
+  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyDy34Ld_C6UZ4ygBng8vdbZ8tvGI1Qt03w",
+      authDomain: "alchemai-cc172.firebaseapp.com",
+      projectId: "alchemai-cc172",
+      storageBucket: "alchemai-cc172.appspot.com",
+      messagingSenderId: "644649980600",
+      appId: "1:644649980600:web:8bfe45cd553aedce915a4d",
+      measurementId: "G-PR4PNCP3SW"
+    };
+
+    if (!firebase.apps.length) {
+      firebase.initializeApp(firebaseConfig);
+    }
+    const auth = firebase.auth();
+
+    const emailInput = document.getElementById('email-input');
+    const passwordInput = document.getElementById('password-input');
+    const signupBtn = document.getElementById('signup-btn');
+    const signinBtn = document.getElementById('signin-btn');
+    const authMessage = document.getElementById('auth-message');
+
+    function showMessage(msg) {
+      authMessage.textContent = msg;
+    }
+
+    signupBtn.onclick = async () => {
+      const email = emailInput.value.trim();
+      const password = passwordInput.value;
+      if (!email || !password) {
+        showMessage('Please enter email and password.');
+        return;
+      }
+      try {
+        const userCredential = await auth.createUserWithEmailAndPassword(email, password);
+        showMessage(`Signup successful! Logged in as ${userCredential.user.email}`);
+      } catch (err) {
+        showMessage(`Signup error: ${err.message}`);
+      }
+    };
+
+    signinBtn.onclick = async () => {
+      const email = emailInput.value.trim();
+      const password = passwordInput.value;
+      if (!email || !password) {
+        showMessage('Please enter email and password.');
+        return;
+      }
+      try {
+        const userCredential = await auth.signInWithEmailAndPassword(email, password);
+        showMessage(`Login successful! Logged in as ${userCredential.user.email}`);
+      } catch (err) {
+        showMessage(`Signin error: ${err.message}`);
+      }
+    };
+
+    auth.onAuthStateChanged(user => {
+      if (user) {
+        showMessage(`Logged in as ${user.email}`);
+      } else {
+        showMessage('Please sign in or sign up.');
+      }
+    });
+  </script>
 </body>
 </html>
