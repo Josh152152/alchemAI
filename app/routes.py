@@ -1,7 +1,7 @@
 from flask import Flask, render_template, request, jsonify
 from flask_cors import CORS
 from app.ai_agent import generate_job_summary
-from app.sheets import store_to_gsheet
+from app.sheets import store_to_gsheet, load_conversation_for_user, save_conversation_for_user
 import json
 import requests
 
@@ -101,6 +101,35 @@ def verify_token():
         return jsonify({"message": "Token valid", "uid": uid})
     except Exception as e:
         return jsonify({"message": f"Invalid token: {str(e)}"}), 401
+
+# --- NEW ENDPOINTS for interim conversation persistence ---
+
+@app.route('/load-conversation', methods=['POST'])
+def load_conversation():
+    data = request.get_json()
+    uid = data.get('uid')
+    if not uid:
+        return jsonify({"error": "Missing uid"}), 400
+
+    try:
+        conversation = load_conversation_for_user(uid)  # implement in app.sheets or DB module
+        return jsonify({"conversation": conversation or []})
+    except Exception as e:
+        return jsonify({"error": f"Failed to load conversation: {str(e)}"}), 500
+
+@app.route('/save-conversation', methods=['POST'])
+def save_conversation():
+    data = request.get_json()
+    uid = data.get('uid')
+    conversation = data.get('conversation')
+    if not uid or conversation is None:
+        return jsonify({"error": "Missing uid or conversation"}), 400
+
+    try:
+        save_conversation_for_user(uid, conversation)  # implement in app.sheets or DB module
+        return jsonify({"status": "success"})
+    except Exception as e:
+        return jsonify({"error": f"Failed to save conversation: {str(e)}"}), 500
 
 if __name__ == "__main__":
     app.run(host='0.0.0.0', port=10000)
