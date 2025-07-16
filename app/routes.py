@@ -12,8 +12,8 @@ from firebase_admin import auth as firebase_auth, credentials
 app = Flask(__name__)
 CORS(app)  # Enable CORS for all routes
 
-# Initialize Firebase Admin SDK (replace with your service account key path or dict)
-cred = credentials.Certificate("path/to/your/firebase-service-account.json")
+# Initialize Firebase Admin SDK with your service account key file
+cred = credentials.Certificate("firebase-credentials.json")
 firebase_admin.initialize_app(cred)
 
 @app.route('/', methods=['GET'])
