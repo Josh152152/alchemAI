@@ -13,9 +13,9 @@
   <button id="signup-btn">Sign Up</button>
   <button id="signin-btn">Sign In</button>
 
-  <p id="auth-message">Please sign in or sign up.</p>
+  <p id="auth-message"></p> <!-- Empty initially, JS will update -->
 
-  <!-- Firebase scripts and your JS go here -->
+  <!-- Firebase scripts -->
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
 
@@ -79,7 +79,7 @@
       if (user) {
         showMessage(`Logged in as ${user.email}`);
       } else {
-        showMessage('Please sign in or sign up.');
+        showMessage(''); // Clear message when no user logged in
       }
     });
   </script>
