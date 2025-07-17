@@ -3,6 +3,7 @@ from flask_cors import CORS
 from app.ai_agent import generate_job_summary
 import json
 import requests
+import os
 
 # Firebase Admin imports
 import firebase_admin
@@ -13,8 +14,19 @@ app = Flask(__name__)
 # CORS config: restrict to your Webflow origin and allow credentials (cookies, auth headers)
 CORS(app, resources={r"/*": {"origins": "https://alchemai.webflow.io"}}, supports_credentials=True)
 
-# Initialize Firebase Admin SDK with your service account key file
-cred = credentials.Certificate("firebase-credentials.json")
+# Load Firebase credentials JSON from environment variable
+firebase_creds_json = os.getenv("FIREBASE_CREDENTIALS")
+if not firebase_creds_json:
+    raise Exception("Missing FIREBASE_CREDENTIALS environment variable")
+
+try:
+    cred_dict = json.loads(firebase_creds_json)
+    print("Firebase credentials JSON loaded successfully.")
+except Exception as e:
+    print("Failed to parse Firebase credentials JSON:", e)
+    raise
+
+cred = credentials.Certificate(cred_dict)
 firebase_admin.initialize_app(cred)
 db = firestore.client()
 
