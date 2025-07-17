@@ -9,7 +9,9 @@ import firebase_admin
 from firebase_admin import auth as firebase_auth, credentials, firestore
 
 app = Flask(__name__)
-CORS(app)  # Enable CORS for all routes
+
+# CORS config: restrict to your Webflow origin and allow credentials (cookies, auth headers)
+CORS(app, resources={r"/*": {"origins": "https://alchemai.webflow.io"}}, supports_credentials=True)
 
 # Initialize Firebase Admin SDK with your service account key file
 cred = credentials.Certificate("firebase-credentials.json")
@@ -28,7 +30,6 @@ def generate():
 
     message_history = data.get("history") or None
     if not message_history and "job_info" in data:
-        # Wrap single job_info string into chat format if needed
         job_info = data["job_info"]
         if isinstance(job_info, str):
             message_history = [{"role": "user", "content": job_info}]
@@ -46,7 +47,6 @@ def generate():
     summary_json = None
     try:
         summary_json = json.loads(ai_reply)
-        # Save structured job summary in Firestore under user's document
         user_uid = data.get("uid")
         if user_uid:
             doc_ref = db.collection("job_descriptions").document(user_uid)
@@ -103,7 +103,7 @@ def verify_token():
     except Exception as e:
         return jsonify({"message": f"Invalid token: {str(e)}"}), 401
 
-# --- Firestore-based conversation persistence ---
+# Firestore-based conversation persistence
 
 @app.route('/load-conversation', methods=['POST'])
 def load_conversation():
@@ -137,7 +137,7 @@ def save_conversation():
     except Exception as e:
         return jsonify({"error": f"Failed to save conversation: {str(e)}"}), 500
 
-# --- New route to load structured job info from Firestore ---
+# New route to load structured job info from Firestore
 
 @app.route('/load-job-info', methods=['POST'])
 def load_job_info():
