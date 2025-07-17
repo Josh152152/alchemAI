@@ -2,12 +2,12 @@ import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 import json
 
-# Use the secret path provided by Render
+# Google Sheets API scope and credentials
 scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
 creds = ServiceAccountCredentials.from_json_keyfile_name('/etc/secrets/creds.json', scope)
 client = gspread.authorize(creds)
 
-# Main job data sheet
+# Main Job Data sheet (first sheet)
 sheet = client.open_by_key('10WTvkXQqCUes7BQ_pPygzpllLhV9SNiy2dMDL73IOIY').sheet1
 
 FIELDS = [
@@ -18,19 +18,19 @@ FIELDS = [
 ]
 
 def store_to_gsheet(job_json):
-    """Append a new row to the GSheet with the latest JD data."""
+    """Append a new row to the GSheet with the latest job data."""
     if isinstance(job_json, str):
         job_json = json.loads(job_json)
     values = [job_json.get(field, "") for field in FIELDS]
     sheet.append_row(values)
 
-# Sheet for storing conversations; make sure this sheet exists in your GSheet file
+# Conversation persistence sheet (ensure this sheet/tab named "Conversations" exists)
 conversation_sheet = client.open_by_key('10WTvkXQqCUes7BQ_pPygzpllLhV9SNiy2dMDL73IOIY').worksheet("Conversations")
 
 def save_conversation_for_user(uid, conversation):
     """
-    Save conversation for a user to the sheet.
-    Stores JSON string of conversation in column 2, uid in column 1.
+    Save conversation list as JSON string in column 2 with uid in column 1.
+    Updates existing row or appends a new one.
     """
     try:
         all_uids = conversation_sheet.col_values(1)
@@ -46,8 +46,8 @@ def save_conversation_for_user(uid, conversation):
 
 def load_conversation_for_user(uid):
     """
-    Load conversation for a user from the sheet.
-    Returns list of conversation messages or empty list if none found.
+    Load and return conversation list for the user from sheet.
+    Returns empty list if not found or on error.
     """
     try:
         all_uids = conversation_sheet.col_values(1)
