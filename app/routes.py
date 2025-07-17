@@ -1,13 +1,12 @@
 from flask import Flask, render_template, request, jsonify
 from flask_cors import CORS
 from app.ai_agent import generate_job_summary
-from app.sheets import store_to_gsheet, load_conversation_for_user, save_conversation_for_user
 import json
 import requests
 
 # Firebase Admin imports
 import firebase_admin
-from firebase_admin import auth as firebase_auth, credentials
+from firebase_admin import auth as firebase_auth, credentials, firestore
 
 app = Flask(__name__)
 CORS(app)  # Enable CORS for all routes
@@ -15,6 +14,7 @@ CORS(app)  # Enable CORS for all routes
 # Initialize Firebase Admin SDK with your service account key file
 cred = credentials.Certificate("firebase-credentials.json")
 firebase_admin.initialize_app(cred)
+db = firestore.client()
 
 @app.route('/', methods=['GET'])
 def home():
@@ -22,22 +22,18 @@ def home():
 
 @app.route('/generate', methods=['POST'])
 def generate():
-    message_history = None
-
     data = request.get_json(silent=True)
-    if data:
-        if "history" in data:
-            message_history = data["history"]
-        elif "job_info" in data:
-            # Wrap single job_info string into chat format if needed
-            if isinstance(data["job_info"], str):
-                message_history = [{"role": "user", "content": data["job_info"]}]
-            else:
-                message_history = data["job_info"]
-    else:
-        job_info = request.form.get("job_info")
-        if job_info:
+    if not data:
+        return jsonify({"error": "Missing JSON body"}), 400
+
+    message_history = data.get("history") or None
+    if not message_history and "job_info" in data:
+        # Wrap single job_info string into chat format if needed
+        job_info = data["job_info"]
+        if isinstance(job_info, str):
             message_history = [{"role": "user", "content": job_info}]
+        else:
+            message_history = job_info
 
     if not message_history:
         return jsonify({"error": "No job_info or history provided"}), 400
@@ -47,17 +43,22 @@ def generate():
     ai_reply = generate_job_summary(message_history)
 
     stored = False
+    summary_json = None
     try:
         summary_json = json.loads(ai_reply)
-        store_to_gsheet(summary_json)
-        stored = True
+        # Save structured job summary in Firestore under user's document
+        user_uid = data.get("uid")
+        if user_uid:
+            doc_ref = db.collection("job_descriptions").document(user_uid)
+            doc_ref.set(summary_json, merge=True)
+            stored = True
     except Exception as e:
-        print("JSON decode or GSheet store failed:", str(e))
+        print("JSON decode or Firestore store failed:", str(e))
         summary_json = None
 
     print("AI reply:", ai_reply)
     print("Summary JSON:", summary_json)
-    print("Saved to GSheet:", stored)
+    print("Saved to Firestore:", stored)
 
     return jsonify({
         "reply": ai_reply,
@@ -102,7 +103,7 @@ def verify_token():
     except Exception as e:
         return jsonify({"message": f"Invalid token: {str(e)}"}), 401
 
-# --- NEW ENDPOINTS for interim conversation persistence ---
+# --- Firestore-based conversation persistence ---
 
 @app.route('/load-conversation', methods=['POST'])
 def load_conversation():
@@ -112,8 +113,12 @@ def load_conversation():
         return jsonify({"error": "Missing uid"}), 400
 
     try:
-        conversation = load_conversation_for_user(uid)  # implement in app.sheets or DB module
-        return jsonify({"conversation": conversation or []})
+        doc_ref = db.collection("conversations").document(uid)
+        doc = doc_ref.get()
+        if doc.exists:
+            return jsonify({"conversation": doc.to_dict().get("conversation", [])})
+        else:
+            return jsonify({"conversation": []})
     except Exception as e:
         return jsonify({"error": f"Failed to load conversation: {str(e)}"}), 500
 
@@ -126,10 +131,29 @@ def save_conversation():
         return jsonify({"error": "Missing uid or conversation"}), 400
 
     try:
-        save_conversation_for_user(uid, conversation)  # implement in app.sheets or DB module
+        doc_ref = db.collection("conversations").document(uid)
+        doc_ref.set({"conversation": conversation})
         return jsonify({"status": "success"})
     except Exception as e:
         return jsonify({"error": f"Failed to save conversation: {str(e)}"}), 500
+
+# --- New route to load structured job info from Firestore ---
+
+@app.route('/load-job-info', methods=['POST'])
+def load_job_info():
+    data = request.get_json()
+    uid = data.get('uid')
+    if not uid:
+        return jsonify({"error": "Missing uid"}), 400
+    try:
+        doc_ref = db.collection("job_descriptions").document(uid)
+        doc = doc_ref.get()
+        if doc.exists:
+            return jsonify({"job_info": doc.to_dict()})
+        else:
+            return jsonify({"job_info": {}})
+    except Exception as e:
+        return jsonify({"error": f"Failed to load job info: {str(e)}"}), 500
 
 if __name__ == "__main__":
     app.run(host='0.0.0.0', port=10000)
