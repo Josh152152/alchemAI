@@ -12,7 +12,7 @@ from firebase_admin import auth as firebase_auth, credentials, firestore
 app = Flask(__name__)
 
 # CORS config: restrict to your Webflow origin and allow credentials (cookies, auth headers)
-CORS(app, resources={r"/*": {"origins": "https://alchemai.webflow.io"}}, supports_credentials=True)
+CORS(app, origins="https://alchemai.webflow.io", supports_credentials=True)
 
 # Load Firebase credentials JSON from environment variable
 firebase_creds_json = os.getenv("FIREBASE_CREDENTIALS")
