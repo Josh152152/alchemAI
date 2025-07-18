@@ -3,7 +3,6 @@ from flask_cors import CORS
 from app.ai_agent import generate_job_summary
 import json
 import requests
-import os
 
 # Firebase Admin imports
 import firebase_admin
@@ -11,22 +10,11 @@ from firebase_admin import auth as firebase_auth, credentials, firestore
 
 app = Flask(__name__)
 
-# CORS config: restrict to your Webflow origin and allow credentials (cookies, auth headers)
-CORS(app, origins="https://alchemai.webflow.io", supports_credentials=True)
+# CORS config: allow only your Webflow origin and support credentials (cookies, auth headers)
+CORS(app, resources={r"/*": {"origins": "https://alchemai.webflow.io"}}, supports_credentials=True)
 
-# Load Firebase credentials JSON from environment variable
-firebase_creds_json = os.getenv("FIREBASE_CREDENTIALS")
-if not firebase_creds_json:
-    raise Exception("Missing FIREBASE_CREDENTIALS environment variable")
-
-try:
-    cred_dict = json.loads(firebase_creds_json)
-    print("Firebase credentials JSON loaded successfully.")
-except Exception as e:
-    print("Failed to parse Firebase credentials JSON:", e)
-    raise
-
-cred = credentials.Certificate(cred_dict)
+# Initialize Firebase Admin SDK with your service account key
+cred = credentials.Certificate("firebase-credentials.json")
 firebase_admin.initialize_app(cred)
 db = firestore.client()
 
@@ -132,6 +120,7 @@ def load_conversation():
         else:
             return jsonify({"conversation": []})
     except Exception as e:
+        print("Error loading conversation:", e)
         return jsonify({"error": f"Failed to load conversation: {str(e)}"}), 500
 
 @app.route('/save-conversation', methods=['POST'])
@@ -147,9 +136,10 @@ def save_conversation():
         doc_ref.set({"conversation": conversation})
         return jsonify({"status": "success"})
     except Exception as e:
+        print("Error saving conversation:", e)
         return jsonify({"error": f"Failed to save conversation: {str(e)}"}), 500
 
-# New route to load structured job info from Firestore
+# Load structured job info from Firestore
 
 @app.route('/load-job-info', methods=['POST'])
 def load_job_info():
@@ -165,7 +155,9 @@ def load_job_info():
         else:
             return jsonify({"job_info": {}})
     except Exception as e:
+        print("Error loading job info:", e)
         return jsonify({"error": f"Failed to load job info: {str(e)}"}), 500
 
 if __name__ == "__main__":
+    # Use 0.0.0.0 so external requests can reach your app
     app.run(host='0.0.0.0', port=10000)
