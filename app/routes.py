@@ -1,7 +1,8 @@
+import os
+import json
 from flask import Flask, render_template, request, jsonify
 from flask_cors import CORS
 from app.ai_agent import generate_job_summary
-import json
 import requests
 
 # Firebase Admin imports
@@ -10,12 +11,18 @@ from firebase_admin import auth as firebase_auth, credentials, firestore
 
 app = Flask(__name__)
 
-# CORS config: allow only your Webflow frontend origin, support credentials (cookies, auth headers)
+# CORS config: allow only your Webflow origin and support credentials (cookies, auth headers)
 CORS(app, resources={r"/*": {"origins": "https://alchemai.webflow.io"}}, supports_credentials=True)
 
-# Initialize Firebase Admin SDK with your service account key
-cred = credentials.Certificate("firebase-credentials.json")
+# Load Firebase credentials JSON from environment variable
+firebase_credentials_json = os.environ.get("FIREBASE_CREDENTIALS")
+if not firebase_credentials_json:
+    raise Exception("FIREBASE_CREDENTIALS environment variable not set")
+
+cred_dict = json.loads(firebase_credentials_json)
+cred = credentials.Certificate(cred_dict)
 firebase_admin.initialize_app(cred)
+
 db = firestore.client()
 
 @app.route('/', methods=['GET'])
@@ -39,7 +46,7 @@ def generate():
     if not message_history:
         return jsonify({"error": "No job_info or history provided"}), 400
 
-    app.logger.info(f"message_history received: {message_history}")
+    print("message_history received:", message_history)
 
     ai_reply = generate_job_summary(message_history)
 
@@ -53,12 +60,12 @@ def generate():
             doc_ref.set(summary_json, merge=True)
             stored = True
     except Exception as e:
-        app.logger.error(f"JSON decode or Firestore store failed: {str(e)}")
+        print("JSON decode or Firestore store failed:", str(e))
         summary_json = None
 
-    app.logger.info(f"AI reply: {ai_reply}")
-    app.logger.info(f"Summary JSON: {summary_json}")
-    app.logger.info(f"Saved to Firestore: {stored}")
+    print("AI reply:", ai_reply)
+    print("Summary JSON:", summary_json)
+    print("Saved to Firestore:", stored)
 
     return jsonify({
         "reply": ai_reply,
@@ -81,13 +88,8 @@ def verify_turnstile():
         'response': token
     }
 
-    try:
-        response = requests.post(verify_url, data=payload, timeout=5)
-        response.raise_for_status()
-        result = response.json()
-    except Exception as e:
-        app.logger.error(f"Error verifying Turnstile token: {e}")
-        return jsonify({"success": False, "error": "Verification request failed"}), 500
+    response = requests.post(verify_url, data=payload)
+    result = response.json()
 
     if result.get("success"):
         return jsonify({"success": True})
@@ -106,10 +108,7 @@ def verify_token():
         uid = decoded_token['uid']
         return jsonify({"message": "Token valid", "uid": uid})
     except Exception as e:
-        app.logger.error(f"Invalid Firebase ID token: {e}")
         return jsonify({"message": f"Invalid token: {str(e)}"}), 401
-
-# Firestore-based conversation persistence
 
 @app.route('/load-conversation', methods=['POST'])
 def load_conversation():
@@ -126,7 +125,7 @@ def load_conversation():
         else:
             return jsonify({"conversation": []})
     except Exception as e:
-        app.logger.error(f"Error loading conversation for uid {uid}: {e}")
+        print("Error loading conversation:", e)
         return jsonify({"error": f"Failed to load conversation: {str(e)}"}), 500
 
 @app.route('/save-conversation', methods=['POST'])
@@ -142,10 +141,8 @@ def save_conversation():
         doc_ref.set({"conversation": conversation})
         return jsonify({"status": "success"})
     except Exception as e:
-        app.logger.error(f"Error saving conversation for uid {uid}: {e}")
+        print("Error saving conversation:", e)
         return jsonify({"error": f"Failed to save conversation: {str(e)}"}), 500
-
-# Load structured job info from Firestore
 
 @app.route('/load-job-info', methods=['POST'])
 def load_job_info():
@@ -161,7 +158,7 @@ def load_job_info():
         else:
             return jsonify({"job_info": {}})
     except Exception as e:
-        app.logger.error(f"Error loading job info for uid {uid}: {e}")
+        print("Error loading job info:", e)
         return jsonify({"error": f"Failed to load job info: {str(e)}"}), 500
 
 if __name__ == "__main__":
