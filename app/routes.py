@@ -53,6 +53,7 @@ def generate():
     stored = False
     summary_json = None
     try:
+        # Expect ai_reply to be a JSON string representing job summary
         summary_json = json.loads(ai_reply)
         user_uid = data.get("uid")
         if user_uid:
