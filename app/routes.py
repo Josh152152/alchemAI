@@ -10,7 +10,7 @@ from firebase_admin import auth as firebase_auth, credentials, firestore
 
 app = Flask(__name__)
 
-# CORS config: allow only your Webflow origin and support credentials (cookies, auth headers)
+# CORS config: allow only your Webflow frontend origin, support credentials (cookies, auth headers)
 CORS(app, resources={r"/*": {"origins": "https://alchemai.webflow.io"}}, supports_credentials=True)
 
 # Initialize Firebase Admin SDK with your service account key
@@ -39,7 +39,7 @@ def generate():
     if not message_history:
         return jsonify({"error": "No job_info or history provided"}), 400
 
-    print("message_history received:", message_history)
+    app.logger.info(f"message_history received: {message_history}")
 
     ai_reply = generate_job_summary(message_history)
 
@@ -53,12 +53,12 @@ def generate():
             doc_ref.set(summary_json, merge=True)
             stored = True
     except Exception as e:
-        print("JSON decode or Firestore store failed:", str(e))
+        app.logger.error(f"JSON decode or Firestore store failed: {str(e)}")
         summary_json = None
 
-    print("AI reply:", ai_reply)
-    print("Summary JSON:", summary_json)
-    print("Saved to Firestore:", stored)
+    app.logger.info(f"AI reply: {ai_reply}")
+    app.logger.info(f"Summary JSON: {summary_json}")
+    app.logger.info(f"Saved to Firestore: {stored}")
 
     return jsonify({
         "reply": ai_reply,
@@ -81,8 +81,13 @@ def verify_turnstile():
         'response': token
     }
 
-    response = requests.post(verify_url, data=payload)
-    result = response.json()
+    try:
+        response = requests.post(verify_url, data=payload, timeout=5)
+        response.raise_for_status()
+        result = response.json()
+    except Exception as e:
+        app.logger.error(f"Error verifying Turnstile token: {e}")
+        return jsonify({"success": False, "error": "Verification request failed"}), 500
 
     if result.get("success"):
         return jsonify({"success": True})
@@ -101,6 +106,7 @@ def verify_token():
         uid = decoded_token['uid']
         return jsonify({"message": "Token valid", "uid": uid})
     except Exception as e:
+        app.logger.error(f"Invalid Firebase ID token: {e}")
         return jsonify({"message": f"Invalid token: {str(e)}"}), 401
 
 # Firestore-based conversation persistence
@@ -120,7 +126,7 @@ def load_conversation():
         else:
             return jsonify({"conversation": []})
     except Exception as e:
-        print("Error loading conversation:", e)
+        app.logger.error(f"Error loading conversation for uid {uid}: {e}")
         return jsonify({"error": f"Failed to load conversation: {str(e)}"}), 500
 
 @app.route('/save-conversation', methods=['POST'])
@@ -136,7 +142,7 @@ def save_conversation():
         doc_ref.set({"conversation": conversation})
         return jsonify({"status": "success"})
     except Exception as e:
-        print("Error saving conversation:", e)
+        app.logger.error(f"Error saving conversation for uid {uid}: {e}")
         return jsonify({"error": f"Failed to save conversation: {str(e)}"}), 500
 
 # Load structured job info from Firestore
@@ -155,9 +161,8 @@ def load_job_info():
         else:
             return jsonify({"job_info": {}})
     except Exception as e:
-        print("Error loading job info:", e)
+        app.logger.error(f"Error loading job info for uid {uid}: {e}")
         return jsonify({"error": f"Failed to load job info: {str(e)}"}), 500
 
 if __name__ == "__main__":
-    # Use 0.0.0.0 so external requests can reach your app
     app.run(host='0.0.0.0', port=10000)
